@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Commands - Discord Bot{% endblock %}
+
+{% block content %}
+<div class="space-y-8 fade-in" x-data="commandsApp()">
+    <!-- Header -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-2">Bot Commands</h1>
+                <p class="text-gray-300">Explore all available commands with hover effects</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        placeholder="Search commands..." 
+                        class="search-input"
+                        x-model="searchQuery"
+                    >
+                </div>
+                <select class="search-input" x-model="selectedCategory">
+                    <option value="">All Categories</option>
+                    <template x-for="category in categories" :key="category">
+                        <option :value="category" x-text="category"></option>
+                    </template>
+                </select>
+                <select class="search-input" x-model="selectedPermission">
+                    <option value="">All Permissions</option>
+                    <option value="everyone">Everyone</option>
+                    <option value="staff">Staff</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Commands Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="commands-container">
+        <div x-show="loading" class="col-span-full text-center py-12">
+            <div class="loading mx-auto"></div>
+            <p class="text-gray-400 mt-4">Loading commands...</p>
+        </div>
+        
+        <template x-for="command in filteredCommands" :key="command.name">
+            <div class="command-card group">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center">
+                        <i class="fas fa-terminal text-discord-blurple mr-2"></i>
+                        <h3 class="text-lg font-semibold text-white" x-text="command.name"></h3>
+                    </div>
+                    <span 
+                        class="px-2 py-1 rounded-full text-xs font-medium"
+                        :class="{
+                            'badge-admin': command.permission_level === 'admin',
+                            'badge-staff': command.permission_level === 'staff',
+                            'badge-everyone': command.permission_level === 'everyone'
+                        }"
+                        x-text="command.permission_level"
+                    ></span>
+                </div>
+                
+                <p class="text-gray-300 mb-4" x-text="command.description"></p>
+                
+                <div class="space-y-2">
+                    <div class="flex items-center text-sm">
+                        <span class="text-gray-400 mr-2">Usage:</span>
+                        <code class="bg-black/20 px-2 py-1 rounded text-discord-blurple" x-text="command.usage"></code>
+                    </div>
+                    
+                    <div x-show="command.aliases && command.aliases.length > 0" class="flex items-center text-sm">
+                        <span class="text-gray-400 mr-2">Aliases:</span>
+                        <div class="flex flex-wrap gap-1">
+                            <template x-for="alias in command.aliases" :key="alias">
+                                <span class="bg-gray-700 px-2 py-1 rounded text-xs" x-text="alias"></span>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center text-sm">
+                        <span class="text-gray-400 mr-2">Category:</span>
+                        <span class="text-white" x-text="command.category"></span>
+                    </div>
+                </div>
+                
+                <!-- Hover overlay -->
+                <div class="absolute inset-0 bg-gradient-to-r from-discord-blurple/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-12 pointer-events-none"></div>
+            </div>
+        </template>
+        
+        <div x-show="!loading && filteredCommands.length === 0" class="col-span-full text-center py-12">
+            <i class="fas fa-search text-4xl text-gray-500 mb-4"></i>
+            <p class="text-gray-400">No commands found matching your criteria.</p>
+        </div>
+    </div>
+
+    <!-- Command Statistics -->
+    <div class="glass-card">
+        <h3 class="text-xl font-semibold text-white mb-4">Command Statistics</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="stat-card">
+                <div class="stat-value" x-text="commands.length"></div>
+                <div class="stat-label">Total Commands</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" x-text="commands.filter(c => c.permission_level === 'everyone').length"></div>
+                <div class="stat-label">Public Commands</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" x-text="commands.filter(c => c.permission_level === 'staff').length"></div>
+                <div class="stat-label">Staff Commands</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" x-text="commands.filter(c => c.permission_level === 'admin').length"></div>
+                <div class="stat-label">Admin Commands</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function commandsApp() {
+    return {
+        commands: [],
+        loading: true,
+        searchQuery: '',
+        selectedCategory: '',
+        selectedPermission: '',
+        
+        get categories() {
+            return [...new Set(this.commands.map(c => c.category))].sort();
+        },
+        
+        get filteredCommands() {
+            return this.commands.filter(command => {
+                const matchesSearch = command.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                    command.description.toLowerCase().includes(this.searchQuery.toLowerCase());
+                const matchesCategory = !this.selectedCategory || command.category === this.selectedCategory;
+                const matchesPermission = !this.selectedPermission || command.permission_level === this.selectedPermission;
+                
+                return matchesSearch && matchesCategory && matchesPermission;
+            });
+        },
+        
+        async init() {
+            try {
+                const response = await fetch('/api/commands');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    this.commands = data.commands.sort((a, b) => a.name.localeCompare(b.name));
+                } else {
+                    console.error('Failed to load commands:', data.message);
+                }
+            } catch (error) {
+                console.error('Error fetching commands:', error);
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

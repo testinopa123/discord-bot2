@@ -1,0 +1,106 @@
+
+class InviteSetupView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        
+    @discord.ui.button(label="Post Check", style=discord.ButtonStyle.gray, custom_id="post_check_button")
+    async def post_check_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Delete the original message
+        await interaction.message.delete()
+        
+        # Ask for channel input
+        embed = discord.Embed(
+            description="Select Channel\nPlease type the channel where the message should be posted",
+            color=0x808080  # Gray
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+        # Wait for user's channel response
+        def check(m):
+            return m.author == interaction.user and m.channel == interaction.channel
+            
+        try:
+            channel_msg = await bot.wait_for('message', check=check, timeout=60.0)
+            channel_input = channel_msg.content
+            
+            # Try to parse channel
+            try:
+                # Try to get channel by mention
+                if channel_input.startswith('<#') and channel_input.endswith('>'):
+                    channel_id = int(channel_input[2:-1])
+                    channel = interaction.guild.get_channel(channel_id)
+                # Try to get channel by ID
+                elif channel_input.isdigit():
+                    channel = interaction.guild.get_channel(int(channel_input))
+                else:
+                    await interaction.followup.send("Invalid channel format. Please use channel mention or ID.", ephemeral=True)
+                    return
+                
+                if not channel:
+                    raise ValueError("Channel not found")
+                    
+                # Create the invite check message
+                embed = discord.Embed(
+                    title="Invites Check",
+                    description="Please press the button to check your invites, if you have enough invites to pass verification you will get the Verified role.",
+                    color=0xFFA500  # Orange
+                )
+                
+                view = CheckInvitesView()
+                message = await channel.send(embed=embed, view=view)
+                
+                # Send success message
+                success_embed = discord.Embed(
+                    description=f"✅ Message successfully posted in {channel.mention}\n[Go to message]({message.jump_url})",
+                    color=0x00FF00  # Green
+                )
+                await interaction.followup.send(embed=success_embed, ephemeral=True)
+                
+            except Exception as e:
+                error_embed = discord.Embed(
+                    description=f"❌ Error: {str(e)}",
+                    color=0xFF0000  # Red
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                
+        except asyncio.TimeoutError:
+            await interaction.followup.send("Timed out waiting for channel input.", ephemeral=True)
+
+class CheckInvitesView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        
+    @discord.ui.button(label="Check", style=discord.ButtonStyle.gray, custom_id="check_invites_button")
+    async def check_invites_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Count the user's invites
+        invite_count = await count_invites(interaction.guild, interaction.user)
+        verified_role_id = 1308045059756654653
+        verified_role = interaction.guild.get_role(verified_role_id)
+        
+        if invite_count >= 1:
+            # Give verified role if they have enough invites
+            try:
+                if verified_role and verified_role not in interaction.user.roles:
+                    await interaction.user.add_roles(verified_role)
+                
+                response = f"{interaction.user.mention}, you have {invite_count} invites. You will soon get the role"
+            except Exception as e:
+                response = f"{interaction.user.mention}, you have {invite_count} invites. (Failed to assign role: {str(e)})"
+        else:
+            response = f"{interaction.user.mention}, you have {invite_count} invites."
+        
+        await interaction.response.send_message(response, ephemeral=True)
+
+@bot.command(name='invsetup')
+@commands.has_permissions(administrator=True)
+async def invite_setup(ctx):
+    """Setup the invite check system"""
+    embed = discord.Embed(
+        title="Invite Check Admin Panel",
+        description="Please select one of the following actions:",
+        color=0xFFA500  # Orange
+    )
+    embed.set_footer(text=f"Invoked by {ctx.author} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    view = InviteSetupView()
+    await ctx.send(embed=embed, view=view)

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Discord Bot Dashboard{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'discord-blurple': '#5865f2',
+                        'discord-dark': '#2c2f33',
+                        'discord-darker': '#23272a',
+                        'discord-success': '#43b581',
+                        'discord-warning': '#faa61a',
+                        'discord-error': '#ed4245'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-discord-darker via-discord-dark to-gray-900">
+    <!-- Navigation -->
+    <nav class="glass-nav sticky top-0 z-50 backdrop-blur-md bg-white/5 border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-robot text-2xl text-discord-blurple"></i>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                                <i class="fas fa-home mr-2"></i>Dashboard
+                            </a>
+                            <a href="{{ url_for('commands') }}" class="nav-link {% if request.endpoint == 'commands' %}active{% endif %}">
+                                <i class="fas fa-terminal mr-2"></i>Commands
+                            </a>
+                            {% if user and user.is_admin %}
+                            <a href="{{ url_for('admin_panel') }}" class="nav-link {% if request.endpoint == 'admin_panel' %}active{% endif %}">
+                                <i class="fas fa-cog mr-2"></i>Admin
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    {% if user %}
+                    <div class="flex items-center space-x-3">
+                        <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png" alt="Avatar" class="w-8 h-8 rounded-full ring-2 ring-discord-blurple">
+                        <span class="text-white hidden sm:inline">{{ user.username }}</span>
+                        <a href="{{ url_for('logout') }}" class="btn-glass">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                        </a>
+                    </div>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="btn-glass">
+                        <i class="fab fa-discord mr-2"></i>Login with Discord
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-16 glass-card mx-4 mb-4">
+        <div class="max-w-7xl mx-auto px-4 py-6 text-center text-gray-400">
+            <p>&copy; 2025 Discord Bot Dashboard. Built with glassmorphism and modern design.</p>
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
